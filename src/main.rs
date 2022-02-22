@@ -1,10 +1,10 @@
+mod engine;
 mod machine;
-mod steno;
 
 use directories::ProjectDirs;
+use engine::Action;
 use enigo::{Enigo, Key, KeyboardControllable};
 use std::fs;
-use steno::Action;
 use toml::Value;
 
 fn main() {
@@ -15,7 +15,7 @@ fn main() {
         .parse::<Value>()
         .unwrap();
 
-    let mut engine = steno::engine::Engine::new();
+    let mut engine = engine::Engine::new();
     for dict in config["dictionaries"].as_array().unwrap() {
         engine.add_dict(dict.as_str().unwrap());
     }

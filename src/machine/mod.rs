@@ -2,7 +2,7 @@
     Struct to represent a Gemini PR machine to read stroke input from.
 */
 
-use super::steno::steno_to_id;
+use super::engine::steno_to_id;
 use serialport::SerialPort;
 use std::{error::Error, io::ErrorKind, thread, time::Duration};
 
