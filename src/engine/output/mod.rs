@@ -142,10 +142,14 @@ fn process_command(s: &str, strings: &mut Vec<String>, formats: &mut Vec<i32>) -
             formats.push(f & format::RESET_CAPS | format::CAPITALIZE);
         }
         "*-|" => {
-            if formats.len() > 0 {
-                let prev = formats.pop().unwrap();
-                formats.push(prev | format::CAPITALIZE);
+            let mut i = formats.len();
+            while i > 0 {
+                i -= 1;
+                if formats[i] & format::ATTACH == 0 {
+                    break;
+                }
             }
+            formats[i] = formats[i] | format::CAPITALIZE;
             formats.push(f);
         }
         // lowercase / lowercase last
@@ -153,22 +157,30 @@ fn process_command(s: &str, strings: &mut Vec<String>, formats: &mut Vec<i32>) -
             formats.push(f & format::RESET_CAPS | format::LOWERCASE);
         }
         "*>" => {
-            if formats.len() > 0 {
-                let prev = formats.pop().unwrap();
-                formats.push(prev | format::LOWERCASE);
-                formats.push(f);
+            let mut i = formats.len();
+            while i > 0 {
+                i -= 1;
+                if formats[i] & format::ATTACH == 0 {
+                    break;
+                }
             }
+            formats[i] = formats[i] | format::LOWERCASE;
+            formats.push(f);
         }
         // UPPERCASE / UPPERCASE LAST
         "<" => {
             formats.push(f & format::RESET_CAPS | format::UPPERCASE);
         }
         "*<" => {
-            if formats.len() > 0 {
-                let prev = formats.pop().unwrap();
-                formats.push(prev | format::UPPERCASE);
-                formats.push(f);
+            let mut i = formats.len();
+            while i > 0 {
+                i -= 1;
+                if formats[i] & format::ATTACH == 0 {
+                    break;
+                }
             }
+            formats[i] = formats[i] | format::UPPERCASE;
+            formats.push(f);
         }
         // Carry capitalization
         "~|" => {
