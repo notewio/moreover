@@ -11,7 +11,7 @@ use enigo::Key;
 use output::translations_to_actions;
 
 const BUFFER_SIZE: usize = 500;
-const STENO_ORDER: &str = "^+#STKPWHRAO*eufrpblgtsdz";
+pub const STENO_ORDER: &str = "^+#STKPWHRAO*eufrpblgtsdz";
 const PSEUDOSTENO: [(&str, &str); 26] = [
     ("gs", "tion"),
     ("frpb", "nch"),
@@ -79,6 +79,20 @@ pub fn steno_to_id(s: &str) -> u32 {
         result |= 1 << index;
     }
     result
+}
+
+pub fn id_to_steno(u: u32) -> String {
+    let mut s = String::new();
+    let mut iter = STENO_ORDER.chars();
+    for i in 0..STENO_ORDER.len() {
+        let c = iter.next().unwrap();
+        if u & 1 << i > 0 {
+            s.push(c);
+        } else {
+            s.push(' ');
+        }
+    }
+    s
 }
 
 fn diff<T: std::cmp::PartialEq>(a: &Vec<T>, b: &Vec<T>) -> usize {
