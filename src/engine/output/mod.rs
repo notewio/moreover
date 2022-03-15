@@ -6,7 +6,8 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 lazy_static! {
-    static ref ESCAPED_BRACKETS: Regex = Regex::new(r"\\(\{|\})").unwrap();
+    static ref ESCAPE_NEWLINE: Regex = Regex::new(r"(^|[^\\])\\n").unwrap();
+    static ref ESCAPED_BRACKETS: Regex = Regex::new(r"\\(\{|\}|\\)").unwrap();
     static ref BRACKETS: Regex = Regex::new(r"(?s)\{(.*?)\}").unwrap();
     static ref PUNCT_CAPS: Regex = Regex::new(r"^(\.|!|\?)$").unwrap();
     static ref PUNCT_SPACE: Regex = Regex::new(r"^(,|:|;)$").unwrap();
@@ -31,6 +32,8 @@ macro_rules! command_keys {
             "Down" => Action::$t(Key::DownArrow),
             "Left" => Action::$t(Key::LeftArrow),
             "Right" => Action::$t(Key::RightArrow),
+            "Home" => Action::$t(Key::Home),
+            "End" => Action::$t(Key::End),
 
             s => Action::$t(Key::Layout(s.chars().next().unwrap())),
         }
@@ -74,7 +77,8 @@ pub fn process_raw(s: &str, strings: &mut Vec<String>, formats: &mut Vec<i32>) -
     let mut non_undoable = true;
     for (i, s) in texts.enumerate() {
         if s.len() > 0 {
-            let text = ESCAPED_BRACKETS.replace_all(s, "${1}");
+            let newlined = ESCAPE_NEWLINE.replace_all(s, "${1}\n").to_string();
+            let text = ESCAPED_BRACKETS.replace_all(&newlined, "${1}");
             strings.push(text.to_string());
             formats.push(0);
             non_undoable = false;
@@ -101,7 +105,6 @@ fn to_action(mut s: String, f: i32) -> Vec<Action> {
 
         keys
     } else {
-        s = s.replace("\\n", "\n");
         if f & format::LOWERCASE > 0 {
             s = s.to_lowercase();
         }
@@ -142,14 +145,16 @@ fn process_command(s: &str, strings: &mut Vec<String>, formats: &mut Vec<i32>) -
             formats.push(f & format::RESET_CAPS | format::CAPITALIZE);
         }
         "*-|" => {
-            let mut i = formats.len();
-            while i > 0 {
-                i -= 1;
-                if formats[i] & format::ATTACH == 0 {
-                    break;
+            if formats.len() > 0 {
+                let mut i = formats.len();
+                while i > 0 {
+                    i -= 1;
+                    if formats[i] & format::ATTACH == 0 {
+                        break;
+                    }
                 }
+                formats[i] = formats[i] | format::CAPITALIZE;
             }
-            formats[i] = formats[i] | format::CAPITALIZE;
             formats.push(f);
         }
         // lowercase / lowercase last
@@ -157,14 +162,16 @@ fn process_command(s: &str, strings: &mut Vec<String>, formats: &mut Vec<i32>) -
             formats.push(f & format::RESET_CAPS | format::LOWERCASE);
         }
         "*>" => {
-            let mut i = formats.len();
-            while i > 0 {
-                i -= 1;
-                if formats[i] & format::ATTACH == 0 {
-                    break;
+            if formats.len() > 0 {
+                let mut i = formats.len();
+                while i > 0 {
+                    i -= 1;
+                    if formats[i] & format::ATTACH == 0 {
+                        break;
+                    }
                 }
+                formats[i] = formats[i] | format::LOWERCASE;
             }
-            formats[i] = formats[i] | format::LOWERCASE;
             formats.push(f);
         }
         // UPPERCASE / UPPERCASE LAST
@@ -172,14 +179,16 @@ fn process_command(s: &str, strings: &mut Vec<String>, formats: &mut Vec<i32>) -
             formats.push(f & format::RESET_CAPS | format::UPPERCASE);
         }
         "*<" => {
-            let mut i = formats.len();
-            while i > 0 {
-                i -= 1;
-                if formats[i] & format::ATTACH == 0 {
-                    break;
+            if formats.len() > 0 {
+                let mut i = formats.len();
+                while i > 0 {
+                    i -= 1;
+                    if formats[i] & format::ATTACH == 0 {
+                        break;
+                    }
                 }
+                formats[i] = formats[i] | format::UPPERCASE;
             }
-            formats[i] = formats[i] | format::UPPERCASE;
             formats.push(f);
         }
         // Carry capitalization

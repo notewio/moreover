@@ -1,23 +1,21 @@
 mod engine;
 mod machine;
 
-use crossterm::cursor;
-use crossterm::style::{Attribute, Print, SetAttribute, Stylize};
-use crossterm::terminal;
-use crossterm::{execute, queue};
+use crossterm::event::Event;
+use crossterm::style::{Print, Stylize};
+use crossterm::{cursor, event, execute, queue, terminal};
 use directories::ProjectDirs;
 use engine::Action;
 use enigo::{Enigo, Key, KeyboardControllable};
-use std::collections::VecDeque;
-use std::fs;
 use std::io::{stdout, Write};
-use std::sync::mpsc;
+use std::{collections::VecDeque, fs, sync::mpsc};
 use toml::Value;
 
 pub enum Ui {
     Stroke(u32, u128, i32),
     Machine(String),
     DictionaryLoaded,
+    Resize(u16, u16),
 }
 
 const DISPLAY_LEN: u16 = 25;
@@ -26,17 +24,21 @@ fn main() -> Result<(), std::io::Error> {
     let (tx, rx) = mpsc::channel();
     let tx1 = tx.clone(); // otherwise the main thread will end after panic
     std::thread::spawn(move || {
-        steno_loop(tx1);
+        steno_loop(tx);
+    });
+    std::thread::spawn(move || {
+        event_loop(tx1).unwrap();
     });
 
     let mut stdout = stdout();
-    let dim = terminal::size()?;
+    let mut dim = terminal::size()?;
     execute!(stdout, terminal::Clear(terminal::ClearType::All))?;
 
     let mut display_buffer = VecDeque::new();
     let mut times_buffer = VecDeque::new();
     let mut efficiency_buffer = VecDeque::new();
     let mut dicts = 0;
+    let mut machine_status = String::new();
 
     draw_dict_status(&mut stdout, dim, dicts)?;
     draw_machine_status(&mut stdout, dim, None)?;
@@ -65,6 +67,8 @@ fn main() -> Result<(), std::io::Error> {
                 draw_stroke_display(&mut stdout, dim, &display_buffer, d, avg, efficiency)?;
             }
             Ui::Machine(s) => {
+                machine_status.clear();
+                machine_status.push_str(&s);
                 if s.len() > 0 {
                     draw_machine_status(&mut stdout, dim, Some(s))?
                 } else {
@@ -75,10 +79,26 @@ fn main() -> Result<(), std::io::Error> {
                 dicts += 1;
                 draw_dict_status(&mut stdout, dim, dicts)?;
             }
+            Ui::Resize(w, h) => {
+                dim = (w, h);
+                execute!(stdout, terminal::Clear(terminal::ClearType::All))?;
+                draw_dict_status(&mut stdout, dim, dicts)?;
+                draw_machine_status(&mut stdout, dim, Some(machine_status.clone()))?;
+                draw_stroke_display(&mut stdout, dim, &display_buffer, 0, 0.0, 0.0)?;
+            }
         }
         stdout.flush()?;
     }
     Ok(())
+}
+
+fn event_loop(tx: mpsc::Sender<Ui>) -> crossterm::Result<()> {
+    loop {
+        match event::read()? {
+            Event::Resize(w, h) => tx.send(Ui::Resize(w, h)).unwrap(),
+            _ => {}
+        }
+    }
 }
 
 fn steno_loop(tx: mpsc::Sender<Ui>) {
